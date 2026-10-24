@@ -1,0 +1,14 @@
+{
+  "job_id": "cstrcat-qwen3-005",
+  "source_file": "/Users/ragibayon/Code/framac/data/cstrcat_unsafe.c",
+  "source_sha256": "ef2cc192f3a3819461b19fb43f23eddffb836aaf674d3890014d009011452fe7",
+  "property_file": null,
+  "property_sha256": null,
+  "model": "ollama:qwen3:8b",
+  "frama_c_image": "framac/frama-c:32.1",
+  "prover": "alt-ergo",
+  "timeout_seconds": 10,
+  "max_refinements": 0,
+  "status": "failed",
+  "error": "candidate_00.c changes original C tokens; only ACSL annotations are permitted. See rejected_candidate file."
+}
