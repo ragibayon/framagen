@@ -6,25 +6,54 @@ JOB
 {% if property_file %}- Verification-property file: {{ property_file }}
 {% else %}- Verification-property file: none provided; distinguish inferred safety concerns from stated requirements.
 {% endif %}- Candidate/output directory: {{ output_dir }}
-- Maximum refinement cycles: {{ max_refinements }}
-- Frama-C Docker image: {{ frama_c_image }}
-- Prover: {{ prover }}
-- Per-goal timeout (seconds): {{ timeout_seconds }}
+- Attempt: {{ attempt }} of at most {{ max_refinements }} refinements
+- Frama-C: {{ frama_c }} (WP, prover {{ prover }}, {{ timeout_seconds }} s per goal{% if machdep %}, machdep {{ machdep }}{% endif %})
+- Runtime-error goals (-wp-rte): {{ "on: prove absence of overflow, invalid memory access, division by zero" if rte else "off" }}
+- Termination: {{ "checked: give loop variants" if check_termination else "not checked (partial correctness); loop variants are optional and not counted" }}
+- Smoke tests: on. A contradictory precondition or an inconsistent loop invariant makes the job FAIL as vacuous.
 
-TASK
-1. Read and analyze only the assigned original source and relevant property definition.
-2. Write analysis.json with program facts, candidate properties, call-site risks, unknowns, and evidence locations.
-3. Generate candidate_00.c: the complete original program with added ACSL comments, but with unchanged executable C code.
-4. Save a clause inventory in contracts.json. For each clause, record its location, intent, grounding, and whether it is an assumption or a stated requirement.
-5. If the registered Frama-C tool is available, parse and verify the candidate; save its exact logs and machine-readable outcome.
-6. Refine only when verifier feedback justifies a change, saving candidate_01.c, candidate_02.c, etc. Never overwrite an earlier candidate. Stay within the maximum refinement cycles.
-7. Produce a final report with source identity, candidate versions, verification evidence, unresolved goals, and unsupported properties.
+TARGET PROPERTY: {{ property_title }}
+{{ property_description }}
+{% if property_formal %}Formal statement: {{ property_formal }}
+{% endif %}{% if property_text and property_text != property_formal %}Property file ({{ property_file }}): {{ property_text }}
+{% endif %}{% if property_sites %}Property sites (each must be proved; line numbers refer to the original file):
+{% for site in property_sites %}  - {{ site }}
+{% endfor %}{% endif %}The job succeeds only if WP proves the target goals AND every annotation they rely on.
 
+{% if goal == "loop-annotations" %}TASK TYPE: LOOP ANNOTATIONS FOR A FIXED PROPERTY (SV-COMP unreach-call)
+The property is already encoded in the file. The block between the
+"sv2acsl harness" markers declares harness functions with ACSL contracts:
+- `reach_error()` has `requires \false`: WP must prove every call to it unreachable.
+- `__VERIFIER_assert(c)` has `requires c != 0`: WP must prove `c` holds at every call.
+- `__VERIFIER_nondet_*()` return an arbitrary value of their type; `assume_abort_if_not(c)` / `abort()` cut paths.
+Your job is to add loop annotations (`loop invariant`, `loop assigns`, optionally `loop variant`)
+and, if useful, `assert` statements, so that WP proves those call-site goals.
+- Keep the harness block byte-for-byte. Do not add contracts to harness functions.
+- Do not add `requires` to `main`; the inputs are the nondet calls.
+{% if not rte %}- Runtime-error goals are off: WP assumes signed arithmetic never overflows, so reason about program variables as mathematical integers.
+{% endif %}
+- For nested loops, annotate every loop. Each invariant must hold on entry and be preserved by one iteration.
+{% else %}TASK TYPE: FULL FUNCTION CONTRACTS
+Write ACSL contracts for every function: `requires`, `assigns`, `ensures` (with named behaviors where
+the code distinguishes cases), plus loop annotations for every loop. Contracts must describe what the
+code computes, not merely that it runs safely. Call sites (including `main`) must satisfy callee
+preconditions; do not strengthen a precondition just to make a caller's goal disappear.
+{% endif %}
+STEPS
+1. Read and analyze only the assigned source{% if property_file %} and property{% endif %} (call read_job_input).
+2. Load the relevant skills under /skills/ and follow them.
+3. Produce {{ candidate_name }}: the complete original program with ACSL comments added and the executable C code unchanged, token for token (same braces, same statements, same declarations).
+{% if self_check %}4. Use the check_candidate tool on your draft; revise it based on the unproved goals, then return the best version.
+{% endif %}{% if previous_candidate %}
+REFINEMENT
+Your previous attempt is {{ previous_candidate }} and its verifier feedback is below. Fix the specific
+unproved goals or violations it reports; keep clauses that were proved. Never weaken the property.
+{% endif %}
 GUARDRAILS
-- Never inspect existing solution files or other benchmark answers.
-- Never silently correct an unsafe program or assume a known benchmark verdict.
-- Do not assert safety merely because a function contract has a strong precondition; check whether its callers establish the precondition.
-- Do not claim a property was proved unless the verifier actually proves it.
-- If a tool or required input is missing, report the limitation explicitly.
+- Never inspect solution files or other benchmark answers; do not assume a known verdict.
+- Do not use `admit`, `ghost` code{% if goal == "loop-annotations" %}, or axioms{% endif %}.
+- Do not claim a property was proved unless the verifier proves it.
 
-Begin with the assigned source file. Load each relevant skill before performing its procedure.
+Return a structured CandidateSpecification. `annotated_c` must contain the COMPLETE file with ACSL
+comments added and no Markdown. Python saves your structured response and runs verification; do not
+execute Docker or shell commands.

@@ -8,3 +8,15 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Upstream dataset clones (re-create with `framagen fetch`)
+datasets/raw/
+# Generated task files (`framagen fetch && framagen build`); only the manifest
+# and splits are versioned. frama-c-problems has no license, so its files are
+# not redistributed.
+benchmarks/*
+!benchmarks/manifest.jsonl
+!benchmarks/splits/
+# Evaluation runs
+runs/
+.pytest_cache/

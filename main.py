@@ -1,6 +1,6 @@
-def main():
-    print("Hello from framac!")
+import sys
 
+from framagen.cli import main
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
